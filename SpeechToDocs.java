@@ -39,7 +39,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.ArrayList;
 
-public class Test {
+public class SpeechToDocs {
 private static String DOCUMENT_ID ="DOCUMENT_ID_GOES_HERE";
 private static final String CREDENTIALS_FILE_PATH = "/credentials.json";
 /** SPECIFY AUDIO FILE NAME BELOW */
@@ -138,4 +138,4 @@ public static void main(String args[]) throws IOException, GeneralSecurityExcept
             BatchUpdateDocumentRequest body = new BatchUpdateDocumentRequest();
             service.documents().batchUpdate(DOCUMENT_ID, body.setRequests(requests)).execute();
     }
-} // Closes public class Test
+} // Closes public class SpeechToDocs
