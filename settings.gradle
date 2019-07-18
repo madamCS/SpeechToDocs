@@ -16,5 +16,5 @@ include 'api'
 include 'services:webservice'
 */
 
-rootProject.name = 'SpeechToText'
+rootProject.name = 'CreateTranscript'
 

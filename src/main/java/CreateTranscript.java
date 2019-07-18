@@ -8,10 +8,16 @@ import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.client.util.store.FileDataStoreFactory;
-import com.google.api.services.docs.*;
+import com.google.api.gax.core.FixedCredentialsProvider;
 import com.google.api.services.docs.v1.Docs;
 import com.google.api.services.docs.v1.DocsScopes;
-import com.google.api.services.docs.v1.model.*;
+import com.google.api.services.docs.v1.model.Document;
+import com.google.api.services.docs.v1.model.BatchUpdateDocumentRequest;
+import com.google.api.services.docs.v1.model.InsertTextRequest;
+import com.google.api.services.docs.v1.model.Location;
+import com.google.api.services.docs.v1.model.Request;
+import com.google.auth.oauth2.GoogleCredentials;
+import com.google.auth.oauth2.ServiceAccountCredentials;
 import com.google.cloud.speech.v1.RecognitionAudio;
 import com.google.cloud.speech.v1.RecognitionConfig;
 import com.google.cloud.speech.v1.RecognitionConfig.AudioEncoding;
@@ -19,7 +25,11 @@ import com.google.cloud.speech.v1.RecognizeResponse;
 import com.google.cloud.speech.v1.SpeechClient;
 import com.google.cloud.speech.v1.SpeechRecognitionAlternative;
 import com.google.cloud.speech.v1.SpeechRecognitionResult;
+import com.google.cloud.speech.v1.SpeechSettings;
 import com.google.protobuf.ByteString;
+
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -30,36 +40,44 @@ import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import org.apache.http.client.CredentialsProvider;
 
-public class SpeechToDocs {
-  private static String DOCUMENT_ID = "DOCUMENT_ID_GOES_HERE";
+/**
+ * Outputs the transcript of an audio file into a 
+ * newly created Google Document.
+ */
+public class CreateTranscript {
   private static final String CREDENTIALS_FILE_PATH = "/credentials.json";
-  /** SPECIFY AUDIO FILE NAME BELOW */
-  private static final String FILE_NAME = "demo.wav";
-
+  
+  // Specify audio file name below.
+  private static final String AUDIO_FILE = "audiofile.wav";
   private static final String TOKENS_DIRECTORY_PATH = "tokens";
   private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
-  private static final String APPLICATION_NAME = "SpeechToDocs";
+  private static final String APPLICATION_NAME = "CreateTranscript";
   private static final List<String> SCOPES = Collections.singletonList(DocsScopes.DOCUMENTS);
 
   public static void main(String args[]) throws IOException, GeneralSecurityException {
-    final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
-    Docs service =
-        new Docs.Builder(HTTP_TRANSPORT, JSON_FACTORY, getCredentials(HTTP_TRANSPORT))
-            .setApplicationName(APPLICATION_NAME)
-            .build();
+      final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
+      Docs service = new Docs.Builder(HTTP_TRANSPORT, JSON_FACTORY, getCredentials(HTTP_TRANSPORT))
+          .setApplicationName(APPLICATION_NAME)
+          .build();
 
-    try {
-      createDoc(service);
-      playSound(service, "demo.wav");
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
+      createTranscript(service, AUDIO_FILE);
   }
 
-  /** Gets Credentials. */
+  /**
+   * Creates an authorized Credential object.
+   *
+   * @param HTTP_TRANSPORT The network HTTP Transport.
+   * @return An authorized Credential object.
+   * @throws IOException If the credentials.json file cannot be found.
+   */
   static Credential getCredentials(final NetHttpTransport HTTP_TRANSPORT) throws IOException {
-    InputStream in = Test.class.getResourceAsStream(CREDENTIALS_FILE_PATH);
+    InputStream in = CreateTranscript.class.getResourceAsStream(CREDENTIALS_FILE_PATH);
+    if (in == null) {
+      throw new FileNotFoundException("Resource not found: " + CREDENTIALS_FILE_PATH);
+    }
+
     GoogleClientSecrets clientSecrets =
         GoogleClientSecrets.load(JSON_FACTORY, new InputStreamReader(in));
 
@@ -71,25 +89,39 @@ public class SpeechToDocs {
             .build();
 
     LocalServerReceiver receiver = new LocalServerReceiver.Builder().setPort(8888).build();
+    System.out.println(receiver);
     return new AuthorizationCodeInstalledApp(flow, receiver).authorize("user");
   }
 
   /**
-   * Creates a new Google Document. * Once the document is created, update the DOCUMENT_ID variable
-   * with its ID.
+   * Calls helper functions to create Doc, get audio file's transcript, and insert transcript into
+   * created Doc.
    */
-  private static void createDoc(Docs service) throws IOException {
-    Document doc = new Document().setTitle("SPEECH TRANSCRIPT");
-    doc = service.documents().create(doc).execute();
-    System.out.println("Created document with title: " + doc.getId());
+  private static void createTranscript(Docs service, String AUDIO_FILE) throws IOException {
+      String docId = createDocument(service);
+      playSound(service, AUDIO_FILE, docId);
   }
 
-  /** Reads the audio file and prints its transcript into the created * Google Document. */
-  public static void playSound(Docs service, String FILE_NAME) throws IOException {
+  /**
+   * Creates a new Google Document. Once the document is created, returns its Document ID.
+   */
+  public static String createDocument(Docs service) throws IOException {
+    Document doc = new Document().setTitle("Transcript for " + AUDIO_FILE);
+    doc = service.documents().create(doc).execute();
+    String documentId = doc.getDocumentId();
+    return documentId;
+  }
+
+  /**
+   * Obtains the transcript of an audio file.
+   */
+  public static void playSound(Docs service, String audioFile, String docId) throws IOException {
     SpeechClient speech = SpeechClient.create();
-    Path path = Paths.get(FILE_NAME);
+    Path path = Paths.get(audioFile);
+    System.out.println("Audio file path is: " + path);
     byte[] data = Files.readAllBytes(path);
     ByteString audioBytes = ByteString.copyFrom(data);
+    System.out.println("Audio bytes is: " + audioBytes.toString());
 
     // Configure request with local raw PCM audio.
     RecognitionConfig config =
@@ -99,8 +131,6 @@ public class SpeechToDocs {
             .setSampleRateHertz(8000)
             .build();
     RecognitionAudio audio = RecognitionAudio.newBuilder().setContent(audioBytes).build();
-
-    // Use blocking call to get audio transcript.
     RecognizeResponse response = speech.recognize(config, audio);
     List<SpeechRecognitionResult> results = response.getResultsList();
 
@@ -109,21 +139,24 @@ public class SpeechToDocs {
       SpeechRecognitionAlternative alternative = result.getAlternativesList().get(0);
       // Inserts transcript into document.
       String toInsert = alternative.getTranscript();
-      insertText(service, toInsert);
+      insertText(service, toInsert, docId);
     }
   }
 
-  /** Function that inserts text into a Google Document. */
-  public static void insertText(Docs service, String WORDS_TO_SAY) throws IOException {
+  /**
+   * Helper function that inserts text into a Google Document.
+   */
+  public static void insertText(Docs service, String toInsert, String docId) throws IOException {
+    System.out.println("Inside of insert text");
     List<Request> requests = new ArrayList<>();
     requests.add(
         new Request()
             .setInsertText(
                 new InsertTextRequest()
-                    .setText(WORDS_TO_SAY)
+                    .setText(toInsert)
                     .setLocation(new Location().setIndex(1))));
 
     BatchUpdateDocumentRequest body = new BatchUpdateDocumentRequest();
-    service.documents().batchUpdate(DOCUMENT_ID, body.setRequests(requests)).execute();
+    service.documents().batchUpdate(docId, body.setRequests(requests)).execute();
   }
-} // Closes public class SpeechToDocs
+}
