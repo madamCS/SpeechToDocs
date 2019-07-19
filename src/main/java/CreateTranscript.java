@@ -147,7 +147,6 @@ public class CreateTranscript {
    * Helper function that inserts text into a Google Document.
    */
   public static void insertText(Docs service, String toInsert, String docId) throws IOException {
-    System.out.println("Inside of insert text");
     List<Request> requests = new ArrayList<>();
     requests.add(
         new Request()
