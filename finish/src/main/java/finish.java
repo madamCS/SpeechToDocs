@@ -43,134 +43,137 @@ import java.util.List;
 import org.apache.http.client.CredentialsProvider;
 
 /**
- * Outputs the transcript of an audio file into a 
- * newly created Google Document.
- */
+* Outputs the transcript of an audio file into a
+* newly created Google Document.
+*/
 public class CreateTranscript {
-  private static final String CREDENTIALS_FILE_PATH = "/credentials.json";
-  
-  // Specify audio file name below.
-  private static final String AUDIO_FILE = "audiofile.wav";
-  private static final String TOKENS_DIRECTORY_PATH = "tokens";
-  private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
-  private static final String APPLICATION_NAME = "CreateTranscript";
-  private static final List<String> SCOPES = Collections.singletonList(DocsScopes.DOCUMENTS);
+ private static final String CREDENTIALS_FILE_PATH = "/credentials.json";
 
-  public static void main(String args[]) throws IOException, GeneralSecurityException {
-      final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
-      Docs service = new Docs.Builder(HTTP_TRANSPORT, JSON_FACTORY, getCredentials(HTTP_TRANSPORT))
-          .setApplicationName(APPLICATION_NAME)
-          .build();
+ // Specify audio file name below.
+ private static final String AUDIO_FILE = "audiofile.wav";
+ private static final String TOKENS_DIRECTORY_PATH = "tokens";
+ private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
+ private static final String APPLICATION_NAME = "CreateTranscript";
+ private static final List<String> SCOPES = Collections.singletonList(DocsScopes.DOCUMENTS);
 
-      createTranscript(service);
-  }
+ public static void main(String args[]) throws IOException, GeneralSecurityException {
+   final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
+   Docs service = new Docs.Builder(HTTP_TRANSPORT, JSON_FACTORY, getCredentials(HTTP_TRANSPORT))
+       .setApplicationName(APPLICATION_NAME)
+       .build();
 
-  /**
-   * Creates an authorized Credential object.
-   *
-   * @param HTTP_TRANSPORT The network HTTP Transport.
-   * @return An authorized Credential object.
-   * @throws IOException If the credentials.json file cannot be found.
-   */
-  static Credential getCredentials(final NetHttpTransport HTTP_TRANSPORT) throws IOException {
-    InputStream in = CreateTranscript.class.getResourceAsStream(CREDENTIALS_FILE_PATH);
-    if (in == null) {
-      throw new FileNotFoundException("Resource not found: " + CREDENTIALS_FILE_PATH);
-    }
+   createTranscript(service);
+ }
 
-    GoogleClientSecrets clientSecrets =
-        GoogleClientSecrets.load(JSON_FACTORY, new InputStreamReader(in));
+ /**
+  * Creates an authorized Credential object.
+  *
+  * @param HTTP_TRANSPORT The network HTTP Transport.
+  * @return An authorized Credential object.
+  * @throws IOException If the credentials.json file cannot be found.
+  */
+ static Credential getCredentials(final NetHttpTransport HTTP_TRANSPORT) throws IOException {
+   InputStream in = CreateTranscript.class.getResourceAsStream(CREDENTIALS_FILE_PATH);
+   if (in == null) {
+     throw new FileNotFoundException("Resource not found: " + CREDENTIALS_FILE_PATH);
+   }
 
-    // Build flow and trigger user authorization request.
-    GoogleAuthorizationCodeFlow flow =
-        new GoogleAuthorizationCodeFlow.Builder(HTTP_TRANSPORT, JSON_FACTORY, clientSecrets, SCOPES)
-            .setDataStoreFactory(new FileDataStoreFactory(new java.io.File(TOKENS_DIRECTORY_PATH)))
-            .setAccessType("offline")
-            .build();
+   GoogleClientSecrets clientSecrets =
+       GoogleClientSecrets.load(JSON_FACTORY, new InputStreamReader(in));
 
-    LocalServerReceiver receiver = new LocalServerReceiver.Builder().setPort(8888).build();
-    System.out.println(receiver);
-    return new AuthorizationCodeInstalledApp(flow, receiver).authorize("user");
-  }
+   // Build flow and trigger user authorization request.
+   GoogleAuthorizationCodeFlow flow =
+       new GoogleAuthorizationCodeFlow.Builder(HTTP_TRANSPORT, JSON_FACTORY, clientSecrets, SCOPES)
+           .setDataStoreFactory(new FileDataStoreFactory(new java.io.File(TOKENS_DIRECTORY_PATH)))
+           .setAccessType("offline")
+           .build();
 
-  /**
-   * Calls helper functions to create Doc, get audio file's transcript, and insert transcript into
-   * created Doc.
-   *
-   * @param {Object} service Docs authorization service to be able to use the Docs API.
-   */
-  private static void createTranscript(Docs service) throws IOException {
-      // Calls helper functions.
-      String docId = createDocument(service);
-      String textToInsert = getTranscript(AUDIO_FILE);
-      insertText(service, textToInsert, docId);
-  }
+   LocalServerReceiver receiver = new LocalServerReceiver.Builder().setPort(8888).build();
+   System.out.println(receiver);
+   return new AuthorizationCodeInstalledApp(flow, receiver).authorize("user");
+ }
 
-  /**
-   * Creates a new Google Document. Once the document is created, returns its Document ID.
-   * 
-   * @param {Object} service Docs authorized service to be able to create a Doc.
-   * @return {String} Returns the Document ID of the newly created Doc.
-   */
-  public static String createDocument(Docs service) throws IOException {
-    Document doc = new Document().setTitle("Transcript for " + AUDIO_FILE);
-    doc = service.documents().create(doc).execute();
-    String documentId = doc.getDocumentId();
-    return documentId;
-  }
+ /**
+  * Calls helper functions to create Doc, get audio file's transcript, and insert transcript into
+  * created Doc.
+  *
+  * @param {Object} service Docs authorization service to be able to use the Docs API.
+  */
+ private static void createTranscript(Docs service) throws IOException {
+   // Calls helper functions.
+   String docId = createDocument(service);
+   String textToInsert = getTranscript();
+   insertText(service, textToInsert, docId);
+ }
 
-  /**
-   * Obtains the transcript of an audio file by calling the Google Speech-to-Text API.
-   *
-   * @return {String} The audio file's transcript.
-   */
-  public static String getTranscript() throws IOException {
-    SpeechClient speech = SpeechClient.create();
-    Path path = Paths.get(AUDIO_FILE);
-    System.out.println("Audio file path is: " + path);
-    byte[] data = Files.readAllBytes(path);
-    ByteString audioBytes = ByteString.copyFrom(data);
-    System.out.println("Audio bytes is: " + audioBytes.toString());
+ /**
+  * Creates a new Google Document. Once the document is created, returns its Document ID.
+  *
+  * @param {Object} service Docs authorized service to be able to create a Doc.
+  * @return {String} Returns the Document ID of the newly created Doc.
+  */
+ public static String createDocument(Docs service) throws IOException {
+   Document doc = new Document().setTitle("Transcript for " + AUDIO_FILE);
+   doc = service.documents().create(doc).execute();
+   String documentId = doc.getDocumentId();
+   return documentId;
+ }
 
-    // Configure request with local raw PCM audio.
-    RecognitionConfig config =
-        RecognitionConfig.newBuilder()
-            .setEncoding(AudioEncoding.LINEAR16)
-            .setLanguageCode("en-US")
-            .setSampleRateHertz(8000)
-            .build();
-    RecognitionAudio audio = RecognitionAudio.newBuilder().setContent(audioBytes).build();
-    RecognizeResponse response = speech.recognize(config, audio);
-    List<SpeechRecognitionResult> results = response.getResultsList();
-      
-    String returnTranscript = '';
-    for (SpeechRecognitionResult result : results) {
-      // Using the first + most likely alternative transcript
-      SpeechRecognitionAlternative alternative = result.getAlternativesList().get(0);
-      // Inserts transcript into document.
-      String toInsert = alternative.getTranscript();
-      returnTranscript = returnTranscript.concat(toInsert);
-    }
-      return returnTranscript;
-  }
+ /**
+  * Obtains the transcript of an audio file by calling the Google Speech-to-Text API.
+  *
+  * @return {String} The audio file's transcript.
+  */
+ public static String getTranscript() throws IOException {
+   SpeechClient speech = SpeechClient.create();
+   Path path = Paths.get(AUDIO_FILE);
+   System.out.println("Audio file path is: " + path);
+   byte[] data = Files.readAllBytes(path);
+   ByteString audioBytes = ByteString.copyFrom(data);
+   System.out.println("Audio bytes is: " + audioBytes.toString());
 
-  /**
-   * Helper function that inserts text into a Google Document.
-   * 
-   * @param {Object} service Docs authorized service to be able to write to an existing Doc.
-   * @param {String} toInsert Text to be inserted into the Doc.
-   * @param {String} docID Google Doc ID of the Doc you'll be writing to.
-   */
-  public static void insertText(Docs service, String toInsert, String docId) throws IOException {
-    List<Request> requests = new ArrayList<>();
-    requests.add(
-        new Request()
-            .setInsertText(
-                new InsertTextRequest()
-                    .setText(toInsert)
-                    .setLocation(new Location().setIndex(1))));
+   // Configure request with local raw PCM audio.
+   RecognitionConfig config =
+       RecognitionConfig.newBuilder()
+           .setEncoding(AudioEncoding.LINEAR16)
+           .setLanguageCode("en-US")
+           .setSampleRateHertz(8000)
+           .build();
+   RecognitionAudio audio = RecognitionAudio.newBuilder().setContent(audioBytes).build();
+   RecognizeResponse response = speech.recognize(config, audio);
+   List<SpeechRecognitionResult> results = response.getResultsList();
 
-    BatchUpdateDocumentRequest body = new BatchUpdateDocumentRequest();
-    service.documents().batchUpdate(docId, body.setRequests(requests)).execute();
-  }
+   String returnTranscript = " ";
+   for (SpeechRecognitionResult result : results) {
+     // Using the first + most likely alternative transcript
+     SpeechRecognitionAlternative alternative = result.getAlternativesList().get(0);
+     // Inserts transcript into document.
+     String toInsert = alternative.getTranscript();
+     returnTranscript = returnTranscript.concat(toInsert);
+   }
+   return returnTranscript;
+ }
+
+ /**
+  * Helper function that inserts text into a Google Document.
+  *
+  * @param {Object} service Docs authorized service to be able to write to an existing Doc.
+  * @param {String} toInsert Text to be inserted into the Doc.
+  * @param {String} docID Google Doc ID of the Doc you'll be writing to.
+  */
+ public static void insertText(Docs service, String toInsert, String docId) throws IOException {
+   List<Request> requests = new ArrayList<>();
+   requests.add(
+       new Request()
+           .setInsertText(
+               new InsertTextRequest()
+                   .setText(toInsert)
+                   .setLocation(new Location().setIndex(1))));
+
+   BatchUpdateDocumentRequest body = new BatchUpdateDocumentRequest();
+   service.documents().batchUpdate(docId, body.setRequests(requests)).execute();
+ }
 }
+
+
+
