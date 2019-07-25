@@ -20,4 +20,6 @@ in Java and executed using the gradle build system.
 - Using the Docs API to create a new Doc.
 - Using the Docs API to write to an existing Doc.
 
+## TODO:
 
+- Codelab in the making, stay tuned for its release!
