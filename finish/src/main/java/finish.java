@@ -62,7 +62,7 @@ public class CreateTranscript {
           .setApplicationName(APPLICATION_NAME)
           .build();
 
-      createTranscript(service, AUDIO_FILE);
+      createTranscript(service);
   }
 
   /**
@@ -98,11 +98,12 @@ public class CreateTranscript {
    * created Doc.
    *
    * @param {Object} service Docs authorization service to be able to use the Docs API.
-   * @param {String} AUDIO_FILE File name of the audio file sending to the Speech-to-Text API.
    */
-  private static void createTranscript(Docs service, String AUDIO_FILE) throws IOException {
+  private static void createTranscript(Docs service) throws IOException {
+      // Calls helper functions.
       String docId = createDocument(service);
-      getTranscript(service, AUDIO_FILE, docId);
+      String textToInsert = getTranscript(AUDIO_FILE);
+      insertText(service, textToInsert, docId);
   }
 
   /**
@@ -121,14 +122,11 @@ public class CreateTranscript {
   /**
    * Obtains the transcript of an audio file by calling the Google Speech-to-Text API.
    *
-   * @param {Object} service Docs authorized service to be able to pass through in the 
-   * insertText() function call.
-   * @param {String} audioFile The name of the audio file.
-   * @param {String} docID Document ID of the Doc you'd like to write to.
+   * @return {String} The audio file's transcript.
    */
-  public static void getTranscript(Docs service, String audioFile, String docId) throws IOException {
+  public static String getTranscript() throws IOException {
     SpeechClient speech = SpeechClient.create();
-    Path path = Paths.get(audioFile);
+    Path path = Paths.get(AUDIO_FILE);
     System.out.println("Audio file path is: " + path);
     byte[] data = Files.readAllBytes(path);
     ByteString audioBytes = ByteString.copyFrom(data);
@@ -144,14 +142,16 @@ public class CreateTranscript {
     RecognitionAudio audio = RecognitionAudio.newBuilder().setContent(audioBytes).build();
     RecognizeResponse response = speech.recognize(config, audio);
     List<SpeechRecognitionResult> results = response.getResultsList();
-
+      
+    String returnTranscript = '';
     for (SpeechRecognitionResult result : results) {
       // Using the first + most likely alternative transcript
       SpeechRecognitionAlternative alternative = result.getAlternativesList().get(0);
       // Inserts transcript into document.
       String toInsert = alternative.getTranscript();
-      insertText(service, toInsert, docId);
+      returnTranscript = returnTranscript.concat(toInsert);
     }
+      return returnTranscript;
   }
 
   /**
