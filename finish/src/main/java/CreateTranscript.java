@@ -96,14 +96,20 @@ public class CreateTranscript {
   /**
    * Calls helper functions to create Doc, get audio file's transcript, and insert transcript into
    * created Doc.
+   *
+   * @param {Object} service Docs authorization service to be able to use the Docs API.
+   * @param {String} AUDIO_FILE File name of the audio file sending to the Speech-to-Text API.
    */
   private static void createTranscript(Docs service, String AUDIO_FILE) throws IOException {
       String docId = createDocument(service);
-      playSound(service, AUDIO_FILE, docId);
+      getTranscript(service, AUDIO_FILE, docId);
   }
 
   /**
    * Creates a new Google Document. Once the document is created, returns its Document ID.
+   * 
+   * @param {Object} service Docs authorized service to be able to create a Doc.
+   * @return {String} Returns the Document ID of the newly created Doc.
    */
   public static String createDocument(Docs service) throws IOException {
     Document doc = new Document().setTitle("Transcript for " + AUDIO_FILE);
@@ -113,9 +119,14 @@ public class CreateTranscript {
   }
 
   /**
-   * Obtains the transcript of an audio file.
+   * Obtains the transcript of an audio file by calling the Google Speech-to-Text API.
+   *
+   * @param {Object} service Docs authorized service to be able to pass through in the 
+   * insertText() function call.
+   * @param {String} audioFile The name of the audio file.
+   * @param {String} docID Document ID of the Doc you'd like to write to.
    */
-  public static void playSound(Docs service, String audioFile, String docId) throws IOException {
+  public static void getTranscript(Docs service, String audioFile, String docId) throws IOException {
     SpeechClient speech = SpeechClient.create();
     Path path = Paths.get(audioFile);
     System.out.println("Audio file path is: " + path);
@@ -145,6 +156,10 @@ public class CreateTranscript {
 
   /**
    * Helper function that inserts text into a Google Document.
+   * 
+   * @param {Object} service Docs authorized service to be able to write to an existing Doc.
+   * @param {String} toInsert Text to be inserted into the Doc.
+   * @param {String} docID Google Doc ID of the Doc you'll be writing to.
    */
   public static void insertText(Docs service, String toInsert, String docId) throws IOException {
     List<Request> requests = new ArrayList<>();
