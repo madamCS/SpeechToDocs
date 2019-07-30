@@ -50,7 +50,7 @@ public class CreateTranscript {
   private static final String CREDENTIALS_FILE_PATH = "/credentials.json";
   
   // Specify audio file name below.
-  private static final String AUDIO_FILE = "audiofile.wav";
+  private static final String AUDIO_FILENAME = "audiofile.wav";
   private static final String TOKENS_DIRECTORY_PATH = "tokens";
   private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
   private static final String APPLICATION_NAME = "CreateTranscript";
@@ -62,7 +62,7 @@ public class CreateTranscript {
           .setApplicationName(APPLICATION_NAME)
           .build();
 
-      createTranscript(service, AUDIO_FILE);
+      createTranscript(service, AUDIO_FILENAME);
   }
 
   /**
@@ -98,11 +98,11 @@ public class CreateTranscript {
    * created Doc.
    *
    * @param {Object} service Docs authorization service to be able to use the Docs API.
-   * @param {String} AUDIO_FILE File name of the audio file sending to the Speech-to-Text API.
+   * @param {String} AUDIO_FILENAME File name of the audio file sending to the Speech-to-Text API.
    */
-  private static void createTranscript(Docs service, String AUDIO_FILE) throws IOException {
+  private static void createTranscript(Docs service, String AUDIO_FILENAME) throws IOException {
       String docId = createDocument(service);
-      getTranscript(service, AUDIO_FILE, docId);
+      getTranscript(service, AUDIO_FILENAME, docId);
   }
 
   /**
