@@ -13,6 +13,7 @@ import com.google.api.services.docs.v1.Docs;
 import com.google.api.services.docs.v1.DocsScopes;
 import com.google.api.services.docs.v1.model.Document;
 import com.google.api.services.docs.v1.model.BatchUpdateDocumentRequest;
+import com.google.api.services.docs.v1.model.EndOfSegmentLocation;
 import com.google.api.services.docs.v1.model.InsertTextRequest;
 import com.google.api.services.docs.v1.model.Location;
 import com.google.api.services.docs.v1.model.Request;
@@ -50,7 +51,7 @@ public class CreateTranscript {
  private static final String CREDENTIALS_FILE_PATH = "/credentials.json";
 
  // Specify audio file name below.
- private static final String AUDIO_FILENAME = "audiofile.wav";
+ private static final String AUDIO_FILE = "audiofile.wav";
  private static final String TOKENS_DIRECTORY_PATH = "tokens";
  private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
  private static final String APPLICATION_NAME = "CreateTranscript";
@@ -89,7 +90,6 @@ public class CreateTranscript {
            .build();
 
    LocalServerReceiver receiver = new LocalServerReceiver.Builder().setPort(8888).build();
-   System.out.println(receiver);
    return new AuthorizationCodeInstalledApp(flow, receiver).authorize("user");
  }
 
@@ -102,8 +102,8 @@ public class CreateTranscript {
  private static void createTranscript(Docs service) throws IOException {
    // Calls helper functions.
    String docId = createDocument(service);
-   String textToInsert = getTranscript();
-   insertText(service, textToInsert, docId);
+   List<Request> toInsert = getTranscript();
+   insertText(service, toInsert, docId);
  }
 
  /**
@@ -112,8 +112,8 @@ public class CreateTranscript {
   * @param {Object} service Docs authorized service to be able to create a Doc.
   * @return {String} Returns the Document ID of the newly created Doc.
   */
- public static String createDocument(Docs service) throws IOException {
-   Document doc = new Document().setTitle("Transcript for " + AUDIO_FILENAME);
+ private static String createDocument(Docs service) throws IOException {
+   Document doc = new Document().setTitle("Transcript for " + AUDIO_FILE);
    doc = service.documents().create(doc).execute();
    String documentId = doc.getDocumentId();
    return documentId;
@@ -122,15 +122,13 @@ public class CreateTranscript {
  /**
   * Obtains the transcript of an audio file by calling the Google Speech-to-Text API.
   *
-  * @return {String} The audio file's transcript.
+  * @return {Object} A list of requests of the audio file's transcript.
   */
- public static String getTranscript() throws IOException {
+ private static List<Request> getTranscript() throws IOException {
    SpeechClient speech = SpeechClient.create();
-   Path path = Paths.get(AUDIO_FILENAME);
-   System.out.println("Audio file path is: " + path);
+   Path path = Paths.get(AUDIO_FILE);
    byte[] data = Files.readAllBytes(path);
    ByteString audioBytes = ByteString.copyFrom(data);
-   System.out.println("Audio bytes is: " + audioBytes.toString());
 
    // Configure request with local raw PCM audio.
    RecognitionConfig config =
@@ -143,37 +141,35 @@ public class CreateTranscript {
    RecognizeResponse response = speech.recognize(config, audio);
    List<SpeechRecognitionResult> results = response.getResultsList();
 
-   String returnTranscript = " ";
+   // Initialize ArrayList to be filled with requests & returned.
+   List<Request> requests = new ArrayList<>();
+
    for (SpeechRecognitionResult result : results) {
      // Using the first + most likely alternative transcript
      SpeechRecognitionAlternative alternative = result.getAlternativesList().get(0);
-     // Inserts transcript into document.
      String toInsert = alternative.getTranscript();
-     returnTranscript = returnTranscript.concat(toInsert);
+
+     // Add requests array list to return.
+     requests.add(
+         new Request()
+             .setInsertText(
+                 new InsertTextRequest()
+                     .setText(toInsert)
+                     .setEndOfSegmentLocation(new EndOfSegmentLocation().setSegmentId(""))));
    }
-   return returnTranscript;
+   return requests;
  }
 
  /**
   * Helper function that inserts text into a Google Document.
   *
   * @param {Object} service Docs authorized service to be able to write to an existing Doc.
-  * @param {String} toInsert Text to be inserted into the Doc.
+  * @param {Object} toInsert List of requests to be inserted into the Doc.
   * @param {String} docID Google Doc ID of the Doc you'll be writing to.
   */
- public static void insertText(Docs service, String toInsert, String docId) throws IOException {
-   List<Request> requests = new ArrayList<>();
-   requests.add(
-       new Request()
-           .setInsertText(
-               new InsertTextRequest()
-                   .setText(toInsert)
-                   .setLocation(new Location().setIndex(1))));
-
+ private static void insertText(Docs service, List<Request> toInsert, String docId) throws IOException {
    BatchUpdateDocumentRequest body = new BatchUpdateDocumentRequest();
-   service.documents().batchUpdate(docId, body.setRequests(requests)).execute();
+   service.documents().batchUpdate(docId, body.setRequests(toInsert)).execute();
  }
 }
-
-
 
